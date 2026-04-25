@@ -96,6 +96,8 @@ class DuplicateGroupWidget(QWidget):
         self._paths = list(paths)
         self._group_number = group_number
         self._mark_callback = mark_callback
+        self._cards: list[ThumbnailCard] = []
+        self._cards_row: QHBoxLayout | None = None
         self._build_ui()
 
     def _build_ui(self):
@@ -109,8 +111,8 @@ class DuplicateGroupWidget(QWidget):
         header.setFont(font)
         layout.addWidget(header)
 
-        cards_row = QHBoxLayout()
-        cards_row.setSpacing(8)
+        self._cards_row = QHBoxLayout()
+        self._cards_row.setSpacing(8)
 
         paths_to_show = self._paths
         if MAX_THUMBNAILS_PER_GROUP is not None:
@@ -120,12 +122,25 @@ class DuplicateGroupWidget(QWidget):
             card = ThumbnailCard(path, is_oldest=(i == 0))
             if i != 0:
                 card.mark_changed.connect(self._mark_callback)
-            cards_row.addWidget(card)
+            self._cards_row.addWidget(card)
+            self._cards.append(card)
 
-        cards_row.addStretch()
-        layout.addLayout(cards_row)
+        self._cards_row.addStretch()
+        layout.addLayout(self._cards_row)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
         separator.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(separator)
+
+    def remove_path(self, path: str) -> None:
+        for card in list(self._cards):
+            if card.path == path:
+                self._cards.remove(card)
+                self._cards_row.removeWidget(card)
+                card.deleteLater()
+                return
+
+    @property
+    def file_count(self) -> int:
+        return len(self._cards)

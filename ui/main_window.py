@@ -1,11 +1,14 @@
 import os
 
+import send2trash
+
 from PySide6.QtCore import QSettings, Slot
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -27,6 +30,7 @@ class MainWindow(QMainWindow):
         self._worker: ScanWorker | None = None
         self._group_count = 0
         self._marked_paths: set[str] = set()
+        self._group_widgets: list[DuplicateGroupWidget] = []
         self._setup_ui()
         self._restore_last_directory()
 
@@ -112,6 +116,7 @@ class MainWindow(QMainWindow):
 
         self._delete_btn = QPushButton("Move to Recycle Bin")
         self._delete_btn.setEnabled(False)
+        self._delete_btn.clicked.connect(self._on_delete)
         delete_row.addWidget(self._delete_btn)
 
         self._delete_bar.setVisible(False)
@@ -200,6 +205,7 @@ class MainWindow(QMainWindow):
         self._cancel_btn.setEnabled(False)
 
     def _clear_results(self):
+        self._group_widgets.clear()
         while self._results_layout.count() > 1:
             item = self._results_layout.takeAt(0)
             if item.widget():
@@ -219,6 +225,7 @@ class MainWindow(QMainWindow):
     def _on_found_duplicate(self, paths: list):
         self._group_count += 1
         widget = DuplicateGroupWidget(paths, self._group_count, self._on_mark_changed)
+        self._group_widgets.append(widget)
         insert_at = self._results_layout.count() - 1
         self._results_layout.insertWidget(insert_at, widget)
         if not self._scroll_area.isVisible():
@@ -264,3 +271,56 @@ class MainWindow(QMainWindow):
             self._marked_label.setVisible(False)
             self._delete_btn.setEnabled(False)
             self._delete_bar.setVisible(False)
+
+    # ------------------------------------------------------------------
+    # Move to Recycle Bin (Story 5)
+    # ------------------------------------------------------------------
+
+    def _on_delete(self):
+        n = len(self._marked_paths)
+        reply = QMessageBox.warning(
+            self,
+            "Confirm Deletion",
+            f"Move {n} file(s) to the Recycle Bin?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        errors: list[str] = []
+        moved: list[str] = []
+
+        for path in list(self._marked_paths):
+            try:
+                send2trash.send2trash(path)
+                moved.append(path)
+            except Exception as e:
+                errors.append(f"{path}: {e}")
+
+        for path in moved:
+            self._marked_paths.discard(path)
+            for group in self._group_widgets:
+                group.remove_path(path)
+
+        for group in list(self._group_widgets):
+            if group.file_count <= 1:
+                self._group_widgets.remove(group)
+                self._results_layout.removeWidget(group)
+                group.deleteLater()
+
+        self._marked_paths.clear()
+        self._update_delete_bar()
+
+        if errors:
+            QMessageBox.critical(
+                self,
+                "Move to Recycle Bin — Errors",
+                "The following files could not be moved:\n\n" + "\n".join(errors),
+            )
+
+        if not self._group_widgets:
+            self._scroll_area.setVisible(False)
+            self.statusBar().showMessage("No duplicates remaining.")
+        elif moved:
+            self.statusBar().showMessage(f"{len(moved)} file(s) moved to Recycle Bin.")
