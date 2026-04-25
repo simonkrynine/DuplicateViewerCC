@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QImage, QPixmap
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -31,9 +31,9 @@ class ThumbnailCard(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         thumb_label = QLabel()
+        thumb_label.setObjectName("thumb")
         thumb_label.setFixedSize(THUMB_SIZE, THUMB_SIZE)
         thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        thumb_label.setFrameShape(QFrame.Shape.Box)
         self._load_thumbnail(thumb_label)
         layout.addWidget(thumb_label)
 
@@ -106,9 +106,7 @@ class DuplicateGroupWidget(QWidget):
         layout.setSpacing(6)
 
         header = QLabel(f"Group {self._group_number}  ·  {len(self._paths)} duplicates")
-        font = QFont()
-        font.setBold(True)
-        header.setFont(font)
+        header.setObjectName("group_header")
         layout.addWidget(header)
 
         self._cards_row = QHBoxLayout()

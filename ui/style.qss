@@ -1,0 +1,7 @@
+QLabel#group_header {
+    font-weight: bold;
+}
+
+QLabel#thumb {
+    border: 1px solid gray;
+}

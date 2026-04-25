@@ -2,7 +2,8 @@ import os
 
 import send2trash
 
-from PySide6.QtCore import QSettings, Slot
+from PySide6.QtCore import Qt, QSettings, Slot
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -35,6 +36,9 @@ class MainWindow(QMainWindow):
         self._restore_last_directory()
 
     def _setup_ui(self):
+        from pathlib import Path
+        self.setStyleSheet((Path(__file__).parent / "style.qss").read_text())
+
         self.setWindowTitle("Image Deduplicator")
         self.resize(1100, 700)
         self.setMinimumSize(860, 600)
@@ -44,9 +48,11 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+        root.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # --- Toolbar ---
         toolbar = QWidget()
+        toolbar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         toolbar_row = QHBoxLayout(toolbar)
         toolbar_row.setContentsMargins(8, 6, 8, 6)
         toolbar_row.setSpacing(8)
@@ -128,6 +134,12 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Directory selection (Story 1)
     # ------------------------------------------------------------------
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._worker and self._worker.isRunning():
+            self._worker.abort()
+            self._worker.wait()
+        super().closeEvent(event)
 
     def _restore_last_directory(self):
         saved = self._settings.value("last_directory", "")
